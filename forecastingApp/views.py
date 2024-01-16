@@ -13,7 +13,7 @@ import os
 from django.conf import settings
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.python.keras.models import load_model
-from keras.optimizers import RMSprop
+from tensorflow.keras.optimizers import RMSprop
 
 import tensorflow as tf
 print(tf.__version__)
@@ -146,17 +146,18 @@ def validar_anio_maximo(dataframe, anio_maximo=2024, anio_minimo=2000):
     )
     
 def custom_object_dict():
-    return {'RMSprop': RMSprop(learning_rate=1e-5, name="rmsprop")}
+    optimizador = RMSprop()
+    return {'optimizador': RMSprop}
 
 def cargar_modelo_y_escalador():
     # Rutas a tus archivos estáticos
     print(os.path.join(settings.MEDIA_ROOT, 'modelo','modelo.h5'))
     print(os.path.join(settings.MEDIA_ROOT, 'modelo','tescalador.joblib'))
-    #modelo_path = os.path.join(settings.MEDIA_ROOT, 'modelo','modelo.h5')
-    #escalador_path = os.path.join(settings.MEDIA_ROOT, 'modelo','escalador.joblib')
+    modelo_path = os.path.join(settings.MEDIA_ROOT, 'modelo','modelo.h5')
+    escalador_path = os.path.join(settings.MEDIA_ROOT, 'modelo','escalador.joblib')
 
     # Cargar el modelo
-    #modelo = load_model(modelo_path, custom_objects=custom_object_dict())
+    modelo = load_model(modelo_path, custom_objects={'RMSprop': RMSprop})
 
     # Cargar el escalador
     #escalador = MinMaxScaler()
