@@ -12,9 +12,11 @@ import traceback
 import os
 from django.conf import settings
 from sklearn.preprocessing import MinMaxScaler
+from tensorflow.python.keras.models import load_model
+from keras.optimizers import RMSprop
+
 import tensorflow as tf
-
-
+print(tf.__version__)
 class Prediccion(generics.GenericAPIView):
     def get(self, request):
         response = {"pred": 0.0, "error": 0.0}
@@ -143,21 +145,38 @@ def validar_anio_maximo(dataframe, anio_maximo=2024, anio_minimo=2000):
         and dataframe.index.year.min() >= anio_minimo
     )
     
+def custom_object_dict():
+    return {'RMSprop': RMSprop(learning_rate=1e-5, name="rmsprop")}
+
 def cargar_modelo_y_escalador():
     # Rutas a tus archivos estáticos
-    print(os.path.join(settings.MEDIA_ROOT, 'modelo.keras'))
-    print(os.path.join(settings.MEDIA_ROOT, 'tescalador.joblib'))
-    #modelo_path = os.path.join(settings.MEDIA_ROOT, 'modelo.keras')
-    #escalador_path = os.path.join(settings.MEDIA_ROOT, 'escalador.joblib')
+    print(os.path.join(settings.MEDIA_ROOT, 'modelo','modelo.h5'))
+    print(os.path.join(settings.MEDIA_ROOT, 'modelo','tescalador.joblib'))
+    #modelo_path = os.path.join(settings.MEDIA_ROOT, 'modelo','modelo.h5')
+    #escalador_path = os.path.join(settings.MEDIA_ROOT, 'modelo','escalador.joblib')
 
     # Cargar el modelo
-    #modelo = load_model(modelo_path)
+    #modelo = load_model(modelo_path, custom_objects=custom_object_dict())
 
     # Cargar el escalador
     #escalador = MinMaxScaler()
     #escalador = escalador.load(escalador_path)
 
     #return modelo, escalador
+    
+def predecir(x, model, scaler, input_length = 12):
+    
+    x_prueba = x['toneladas'].values[-input_length:].reshape((1, input_length, 1))
+    
+    x_prueba_escalada = scaler.transform(x_prueba)
+
+    # Calcular predicción escalada en el rango de -1 a 1
+    y_pred_s = model.predict(x_prueba_escalada,verbose=0)
+
+    # Llevar la predicción a la escala original
+    y_pred = scaler.inverse_transform(y_pred_s)
+
+    return y_pred.flatten()
 
 def prediccion_con_fechas(dataframe, ValoresPrediccion, cantidadPrediccion):
     ultima_fecha = dataframe.index[-1]
@@ -186,4 +205,6 @@ def generar_grafica(dataframe):
     
     return img_base64
     
+    
+
     
