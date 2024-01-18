@@ -31,7 +31,8 @@ DEBUG = 'RENDER' not in os.environ
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    'iaforecastingbk.onrender.com',]
+    'iaforecastingbk.onrender.com',
+    'https://iaforecasting.onrender.com']
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
@@ -45,6 +46,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://iaforecastingbk.onrender.com',
     'http://localhost:8000',
     'http://localhost:5173',
+    'https://iaforecasting.onrender.com'
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -53,6 +55,7 @@ CORS_ALLOWED_ORIGINS = [
     'https://iaforecastingbk.onrender.com',
     'http://localhost:8000',
     'http://localhost:5173',
+    'https://iaforecasting.onrender.com'
 ]
 
 # Application definition
