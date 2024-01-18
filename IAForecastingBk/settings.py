@@ -28,7 +28,10 @@ TF_ENABLE_ONEDNN_OPTS=0
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = 'RENDER' not in os.environ
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'iaforecastingbk.onrender.com',]
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
@@ -40,12 +43,16 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
     'https://iaforecastingbk.onrender.com',
+    'http://localhost:8000',
+    'http://localhost:5173',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     'https://iaforecastingbk.onrender.com',
+    'http://localhost:8000',
+    'http://localhost:5173',
 ]
 
 # Application definition

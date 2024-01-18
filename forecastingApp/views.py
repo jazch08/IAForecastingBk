@@ -13,13 +13,14 @@ import os
 from django.conf import settings
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.python.keras.models import load_model
-from tensorflow.keras.optimizers import RMSprop
+from tensorflow.python.keras.optimizers import rmsprop_v2
+from joblib import load
 
 import tensorflow as tf
 print(tf.__version__)
 class Prediccion(generics.GenericAPIView):
     def get(self, request):
-        response = {"pred": 0.0, "error": 0.0}
+        response = {"pred": 0.0, "error1": 0.0}
 
         return JsonResponse(response, status=status.HTTP_200_OK)
 
@@ -27,19 +28,22 @@ class Prediccion(generics.GenericAPIView):
         response = {}
         
         data = procesar_archivo(request.data["datos"])
+        cantidadPrediccion = int(request.data["cantidadPrediccion"])
 
         if data is not None:
+            if not isinstance(data, pd.DataFrame):
+                return data
             try:
 
                 if not validar_cantidad_meses(data):
                     response[
-                        "error"
+                        "msgError"
                     ] = "El archivo no tiene el formato correcto. Debe contener 12 meses consecutivos de datos."
                     return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
                 
                 if not validar_cabeceras_correctas(data):
                     response[
-                        "error"
+                        "msgError"
                     ] = "El archivo no tiene el formato correcto. Debe contener las columnas 'Año', 'Mes' y 'Toneladas'."
                     return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
 
@@ -47,13 +51,13 @@ class Prediccion(generics.GenericAPIView):
 
                 if not validar_separacion_por_mes(data):
                     response[
-                        "error"
+                        "msgError"
                     ] = "El archivo no tiene el formato correcto. Debe contener 12 meses consecutivos de datos."
                     return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
 
                 if not validar_anio_maximo(data):
                     response[
-                        "error"
+                        "msgError"
                     ] = "Lo sentimos, el archivo no tiene el formato correcto. El año no puede ser superior a 2024 ni inferior a 2000 para la predicción."
                     return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
 
@@ -66,9 +70,14 @@ class Prediccion(generics.GenericAPIView):
                     1206.4731,
                 ]
                 
-                cargar_modelo_y_escalador()
+                modelo, escalador = cargar_modelo_y_escalador()
                 
-                prediccion_fechas = prediccion_con_fechas(data, resultadoModelo, 6)
+                predicciones_nuevas = predecir(data, modelo, escalador)
+                
+                print("** Predicciones nuevas **")
+                print(predicciones_nuevas)
+                
+                prediccion_fechas = prediccion_con_fechas(data, predicciones_nuevas, cantidadPrediccion)
                 
                 dataframe_resultado_completo = data.combine_first(prediccion_fechas)
                 
@@ -89,11 +98,11 @@ class Prediccion(generics.GenericAPIView):
 
                 return JsonResponse(response, status=status.HTTP_200_OK)
             except:
-                response["error"] = "Error al procesar el archivo. Intente nuevamente."
+                response["msgError"] = "Error al procesar el archivo. Intente nuevamente."
                 print(traceback.format_exc())
                 return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
         else:
-            response["error"] = "El archivo no es de tipo InMemoryUploadedFile."
+            response["msgError"] = "El archivo no es de tipo InMemoryUploadedFile."
             return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -103,6 +112,13 @@ def procesar_archivo(archivo):
 
         dataframe = pd.read_csv(StringIO(contenido), sep=";")
         dataframe = dataframe.dropna()
+        if not validar_cabeceras_correctas(dataframe):
+            response = {}
+            response[
+                        "msgError"
+                    ] = "El archivo no tiene el formato correcto. Debe contener las columnas 'Año', 'Mes' y 'Toneladas'."
+            return JsonResponse(response, status=status.HTTP_400_BAD_REQUEST)
+        print("dataframe isInstance", isinstance(dataframe, pd.DataFrame))
         dataframe['Tonelada'] = pd.to_numeric(dataframe['Tonelada'].str.replace('.', '').str.replace(',', '.'), errors='coerce')
 
         return dataframe
@@ -146,30 +162,38 @@ def validar_anio_maximo(dataframe, anio_maximo=2024, anio_minimo=2000):
     )
     
 def custom_object_dict():
-    optimizador = RMSprop()
-    return {'optimizador': RMSprop}
+    return {'optimizador': rmsprop_v2.RMSprop()}
 
 def cargar_modelo_y_escalador():
     # Rutas a tus archivos estáticos
-    print(os.path.join(settings.MEDIA_ROOT, 'modelo','modelo.h5'))
+    print(os.path.join(settings.MEDIA_ROOT, 'modelo','modelo.keras'))
     print(os.path.join(settings.MEDIA_ROOT, 'modelo','tescalador.joblib'))
-    modelo_path = os.path.join(settings.MEDIA_ROOT, 'modelo','modelo.h5')
+    modelo_path = os.path.join(settings.MEDIA_ROOT, 'modelo','modelo.keras')
     escalador_path = os.path.join(settings.MEDIA_ROOT, 'modelo','escalador.joblib')
 
     # Cargar el modelo
-    modelo = load_model(modelo_path, custom_objects={'RMSprop': RMSprop})
+    modelo = load_model(modelo_path,custom_objects={'RMSprop': rmsprop_v2.RMSprop(learning_rate=1e-5)})
 
     # Cargar el escalador
-    #escalador = MinMaxScaler()
-    #escalador = escalador.load(escalador_path)
+    escalador = load(escalador_path)
 
-    #return modelo, escalador
+    return modelo, escalador
     
 def predecir(x, model, scaler, input_length = 12):
     
-    x_prueba = x['toneladas'].values[-input_length:].reshape((1, input_length, 1))
+    x_prueba = x['Tonelada'].values[-input_length:].reshape((input_length, 1))
+    
+    print("** x_prueba **")
+    print(x_prueba)
     
     x_prueba_escalada = scaler.transform(x_prueba)
+    
+    print("\n** x_prueba_escalada **")
+    print(x_prueba_escalada)
+    x_prueba_escalada = x_prueba_escalada.reshape((1, input_length, 1))
+    
+    print("\n** x_prueba_escalada reshaped **")
+    print(x_prueba_escalada)
 
     # Calcular predicción escalada en el rango de -1 a 1
     y_pred_s = model.predict(x_prueba_escalada,verbose=0)
